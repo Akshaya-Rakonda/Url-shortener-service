@@ -2,14 +2,19 @@
 
 const express = require('express');
 const config = require('./config');
+const requestId = require('./middleware/requestId');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { apiRateLimiter, redirectRateLimiter } = require('./middleware/rateLimiter');
 const urlRouter = require('./api/urls');
 const analyticsRouter = require('./api/analytics');
 
 const app = express();
 
-app.use(express.json());
 
-// Health check
+app.use(express.json());
+app.use(requestId);
+
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -20,8 +25,7 @@ app.get('/health', (req, res) => {
 });
 
 
-
-app.get('/:shortCode', async (req, res) => {
+app.get('/:shortCode', redirectRateLimiter, async (req, res, next) => {
   try {
     const { shortCode } = req.params;
 
@@ -30,8 +34,6 @@ app.get('/:shortCode', async (req, res) => {
     }
 
     const urlService = require('./core/urlService');
-
-  
     const context = {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
@@ -41,19 +43,20 @@ app.get('/:shortCode', async (req, res) => {
     const originalUrl = await urlService.resolve(shortCode, context);
     res.redirect(301, originalUrl);
   } catch (err) {
-    res.status(err.statusCode || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message,
-      },
-    });
+    next(err);
   }
 });
 
-// Routes
-app.use('/api/v1/urls', urlRouter);
-app.use('/api/v1/analytics', analyticsRouter);
+
+const api = express.Router();
+api.use(apiRateLimiter);
+api.use('/urls', urlRouter);
+api.use('/analytics', analyticsRouter);
+app.use('/api/v1', api);
+
+
+app.use(notFound);
+app.use(errorHandler);
 
 app.listen(config.port, () => {
   console.log(`Server running at ${config.baseUrl}`);
