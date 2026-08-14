@@ -2,12 +2,13 @@
 
 const express = require('express');
 const urlService = require('../core/urlService');
+const { requireApiKey } = require('../middleware/auth');
 const config = require('../config');
 
 const router = express.Router();
 
 // POST /api/v1/urls - Shorten a URL
-router.post('/', async (req, res) => {
+router.post('/', requireApiKey, async (req, res, next) => {
   try {
     const { url, customAlias, ttlDays } = req.body;
 
@@ -15,7 +16,7 @@ router.post('/', async (req, res) => {
       originalUrl: url,
       customAlias,
       ttlDays,
-      userId: 'anonymous', 
+      userId: req.user.id,
     });
 
     res.status(201).json({
@@ -30,24 +31,18 @@ router.post('/', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.statusCode || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message,
-      },
-    });
+    next(err);
   }
 });
 
-
-router.get('/', async (req, res) => {
+// GET /api/v1/urls - List all URLs
+router.get('/', requireApiKey, async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
 
     const result = await urlService.list({
-      userId: 'anonymous',
+      userId: req.user.id,
       page,
       limit,
     });
@@ -67,18 +62,12 @@ router.get('/', async (req, res) => {
       pagination: result.pagination,
     });
   } catch (err) {
-    res.status(err.statusCode || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message,
-      },
-    });
+    next(err);
   }
 });
 
-
-router.get('/:shortCode', async (req, res) => {
+// GET /api/v1/urls/:shortCode - Get a single URL
+router.get('/:shortCode', requireApiKey, async (req, res, next) => {
   try {
     const record = await urlService.get(req.params.shortCode);
 
@@ -97,22 +86,16 @@ router.get('/:shortCode', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.statusCode || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message,
-      },
-    });
+    next(err);
   }
 });
 
-
-router.delete('/:shortCode', async (req, res) => {
+// DELETE /api/v1/urls/:shortCode - Deactivate a URL
+router.delete('/:shortCode', requireApiKey, async (req, res, next) => {
   try {
     const updated = await urlService.deactivate(
       req.params.shortCode,
-      'anonymous'
+      req.user.id
     );
 
     res.json({
@@ -124,31 +107,8 @@ router.delete('/:shortCode', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(err.statusCode || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message,
-      },
-    });
+    next(err);
   }
 });
-
-router.get('/redirect/:shortCode', async (req, res) => {
-  try {
-    const { shortCode } = req.params;
-    const originalUrl = await urlService.resolve(shortCode);
-    res.redirect(301, originalUrl);
-  } catch (err) {
-    res.status(err.statusCode || 500).json({
-      success: false,
-      error: {
-        code: err.code || 'INTERNAL_ERROR',
-        message: err.message,
-      },
-    });
-  }
-});
-
 
 module.exports = router;
