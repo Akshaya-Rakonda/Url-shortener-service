@@ -67,6 +67,109 @@ class UrlService {
     return record;
   }
 
+  // Resolve a short code to its original URL
+  async resolve(shortCode) {
+
+    
+    const record = store.get(shortCode);
+
+    if (!record) {
+      throw Object.assign(
+        new Error(`Short code '${shortCode}' not found`),
+        { code: 'NOT_FOUND', statusCode: 404 }
+      );
+    }
+
+    
+    if (!record.isActive) {
+      throw Object.assign(
+        new Error(`This link has been deactivated`),
+        { code: 'DEACTIVATED', statusCode: 410 }
+      );
+    }
+
+    
+    if (new Date(record.expiresAt) < new Date()) {
+      throw Object.assign(
+        new Error(`This link has expired`),
+        { code: 'EXPIRED', statusCode: 410 }
+      );
+    }
+
+    
+    setImmediate(() => {
+      const current = store.get(shortCode);
+      if (current) {
+        store.set(shortCode, {
+          ...current,
+          clicks: current.clicks + 1,
+          lastAccessedAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    return record.originalUrl;
+  }
+
+
+  async get(shortCode) {
+    const record = store.get(shortCode);
+    if (!record) {
+      throw Object.assign(
+        new Error(`Short code '${shortCode}' not found`),
+        { code: 'NOT_FOUND', statusCode: 404 }
+      );
+    }
+    return record;
+  }
+
+  
+  async list({ userId, page = 1, limit = 20 } = {}) {
+    const all = store.getAll();
+
+    
+    const filtered = userId
+      ? all.filter(r => r.userId === userId)
+      : all;
+
+    
+    const total = filtered.length;
+    const start = (page - 1) * limit;
+    const items = filtered.slice(start, start + limit);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  
+  async deactivate(shortCode, userId) {
+    const record = await this.get(shortCode);
+
+    
+    if (record.userId !== userId && userId !== 'anonymous') {
+      throw Object.assign(
+        new Error('You do not have permission to deactivate this URL'),
+        { code: 'FORBIDDEN', statusCode: 403 }
+      );
+    }
+
+    const updated = {
+      ...record,
+      isActive: false,
+      updatedAt: new Date().toISOString(),
+    };
+
+    store.set(shortCode, updated);
+    return updated;
+  }
+
   //generate a unique short code
   _generateUniqueCode(attempts = 0) {
     if (attempts > 10) {
