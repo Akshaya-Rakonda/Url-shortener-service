@@ -3,7 +3,10 @@
 class InMemoryStore {
   constructor() {
     this._urls = new Map();
+    this._analytics = [];
   }
+
+  
 
   set(shortCode, record) {
     this._urls.set(shortCode, record);
@@ -34,7 +37,28 @@ class InMemoryStore {
 
   clear() {
     this._urls.clear();
+    this._analytics = [];
+  }
+
+  
+
+  
+  addClickEvent(event) {
+    this._analytics.push(event);
+  }
+
+  
+  getClickEvents(shortCode) {
+    return this._analytics.filter(e => e.shortCode === shortCode);
+  }
+
+  
+  getTopUrls(limit = 10) {
+    return [...this._urls.values()]
+      .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
+      .slice(0, limit);
   }
 }
+
 const store = new InMemoryStore();
 module.exports = store;

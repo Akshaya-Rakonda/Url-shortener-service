@@ -67,8 +67,8 @@ class UrlService {
     return record;
   }
 
-  // Resolve a short code to its original URL
-  async resolve(shortCode) {
+  
+  async resolve(shortCode, context = {}) {
 
     
     const record = store.get(shortCode);
@@ -98,6 +98,7 @@ class UrlService {
 
     
     setImmediate(() => {
+      // Update click count
       const current = store.get(shortCode);
       if (current) {
         store.set(shortCode, {
@@ -106,6 +107,17 @@ class UrlService {
           lastAccessedAt: new Date().toISOString(),
         });
       }
+
+      
+      store.addClickEvent({
+        shortCode,
+        timestamp: new Date().toISOString(),
+        ip: context.ip || null,
+        userAgent: context.userAgent || null,
+        referrer: context.referrer || null,
+        device: this._parseDevice(context.userAgent),
+        browser: this._parseBrowser(context.userAgent),
+      });
     });
 
     return record.originalUrl;
@@ -226,6 +238,24 @@ class UrlService {
       );
     }
   }
+
+  _parseDevice(userAgent = '') {
+    if (!userAgent) { return 'unknown'; }
+    if (/mobile/i.test(userAgent)) { return 'mobile'; }
+    if (/tablet|ipad/i.test(userAgent)) { return 'tablet'; }
+    return 'desktop';
+  }
+
+  
+  _parseBrowser(userAgent = '') {
+    if (!userAgent) { return 'unknown'; }
+    if (/chrome/i.test(userAgent) && !/edge|opr/i.test(userAgent)) { return 'chrome'; }
+    if (/firefox/i.test(userAgent)) { return 'firefox'; }
+    if (/safari/i.test(userAgent) && !/chrome/i.test(userAgent)) { return 'safari'; }
+    if (/edge/i.test(userAgent)) { return 'edge'; }
+    return 'other';
+  }
+
 }
 
 module.exports = new UrlService();
