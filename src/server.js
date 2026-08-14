@@ -60,8 +60,13 @@ api.use('/orchestrate', orchestrationRouter);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(config.port, () => {
-  console.log(`Server running at ${config.baseUrl}`);
-});
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(config.port, () => {
+    console.log(`Server running at ${config.baseUrl}`);
+  });
+}
+
+module.exports = app;
 
 module.exports = app;

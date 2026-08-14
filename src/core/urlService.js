@@ -16,17 +16,25 @@ const URL_REGEX = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9(
 class UrlService {
 
   // Shorten a URL
-  async shorten({ originalUrl, customAlias, ttlDays, userId }) {
+  async shorten({ originalUrl, customAlias, ttlDays, userId, idempotencyKey }) {
 
-    // 1. Validate the URL
+    
+    if (idempotencyKey) {
+      const existing = store.getIdempotencyRecord(idempotencyKey);
+      if (existing) {
+        return existing; 
+      }
+    }
+
+   
     this._validateUrl(originalUrl);
 
-    // 2. Check if same URL already exists for this user (idempotency)
-    const existing = store.getAll().find(
+    
+    const duplicate = store.getAll().find(
       r => r.originalUrl === originalUrl && r.userId === userId
     );
-    if (existing && !customAlias) {
-      return existing;
+    if (duplicate && !customAlias) {
+      return duplicate;
     }
 
     
@@ -62,8 +70,14 @@ class UrlService {
       expiresAt: expiresAt.toISOString(),
     };
 
-   
+    
     store.set(shortCode, record);
+
+    
+    if (idempotencyKey) {
+      store.setIdempotencyRecord(idempotencyKey, record);
+    }
+
     return record;
   }
 

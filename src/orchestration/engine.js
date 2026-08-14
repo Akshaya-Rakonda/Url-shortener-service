@@ -306,6 +306,44 @@ class OrchestrationEngine extends EventEmitter {
     this.emit('pipeline:safe_stop_requested', { reason });
   }
 
+  // Dynamically re-plan when upstream outputs change
+  replan(changedStageIds = []) {
+    const replanned = [];
+
+    for (const stageId of changedStageIds) {
+      if (this.graph.nodes.has(stageId)) {
+        
+        this._setStageStatus(stageId, 'PENDING');
+
+        
+        this._stageResults.delete(stageId);
+
+        
+        for (const [id, deps] of this.graph.edges) {
+          if (deps.has(stageId)) {
+            this._setStageStatus(id, 'PENDING');
+            this._stageResults.delete(id);
+            replanned.push(id);
+          }
+        }
+
+        replanned.push(stageId);
+
+        this._addAuditEntry('stage_replanned', stageId, {
+          reason: 'upstream output changed',
+          affectedStages: replanned,
+        });
+
+        this.emit('pipeline:replanned', {
+          changedStageId: stageId,
+          affectedStages: replanned,
+        });
+      }
+    }
+
+    return replanned;
+  }
+
   
   getAuditLog() {
     return [...this._auditLog];
