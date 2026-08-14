@@ -7,6 +7,7 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { apiRateLimiter, redirectRateLimiter } = require('./middleware/rateLimiter');
 const urlRouter = require('./api/urls');
 const analyticsRouter = require('./api/analytics');
+const orchestrationRouter = require('./api/orchestration');
 
 const app = express();
 
@@ -53,6 +54,7 @@ api.use(apiRateLimiter);
 api.use('/urls', urlRouter);
 api.use('/analytics', analyticsRouter);
 app.use('/api/v1', api);
+api.use('/orchestrate', orchestrationRouter);
 
 
 app.use(notFound);
