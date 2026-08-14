@@ -4,6 +4,7 @@ class InMemoryStore {
   constructor() {
     this._urls = new Map();
     this._analytics = [];
+    this._idempotency = new Map(); // key -> record
   }
 
   
@@ -38,21 +39,35 @@ class InMemoryStore {
   clear() {
     this._urls.clear();
     this._analytics = [];
+    this._idempotency.clear();
   }
 
-  
+  // ── Idempotency operations ──────────────────────────────
 
-  
+  // Save a record under an idempotency key
+  setIdempotencyRecord(key, record) {
+    this._idempotency.set(key, record);
+  }
+
+  // Get a record by idempotency key
+  getIdempotencyRecord(key) {
+    return this._idempotency.get(key) || null;
+  }
+
+  // Check if idempotency key exists
+  hasIdempotencyKey(key) {
+    return this._idempotency.has(key);
+  }
+
+
   addClickEvent(event) {
     this._analytics.push(event);
   }
 
-  
   getClickEvents(shortCode) {
     return this._analytics.filter(e => e.shortCode === shortCode);
   }
 
-  
   getTopUrls(limit = 10) {
     return [...this._urls.values()]
       .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))

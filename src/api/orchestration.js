@@ -154,4 +154,33 @@ router.post('/:executionId/stop', requireApiKey, (req, res) => {
   res.json({ success: true, data: { safeStopRequested: true } });
 });
 
+// POST /api/v1/orchestrate/:executionId/replan
+router.post('/:executionId/replan', requireApiKey, (req, res) => {
+  const engine = activePipelines.get(req.params.executionId);
+  if (!engine) {
+    return res.status(404).json({
+      success: false,
+      error: { code: 'NOT_FOUND', message: 'Pipeline not found or already completed' },
+    });
+  }
+
+  const { changedStageIds } = req.body;
+  if (!Array.isArray(changedStageIds) || changedStageIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'changedStageIds must be a non-empty array' },
+    });
+  }
+
+  const affectedStages = engine.replan(changedStageIds);
+  res.json({
+    success: true,
+    data: {
+      replanned: true,
+      changedStageIds,
+      affectedStages,
+    },
+  });
+});
+
 module.exports = router;

@@ -11,12 +11,14 @@ const router = express.Router();
 router.post('/', requireApiKey, async (req, res, next) => {
   try {
     const { url, customAlias, ttlDays } = req.body;
+    const idempotencyKey = req.headers['idempotency-key'] || null;
 
     const record = await urlService.shorten({
       originalUrl: url,
       customAlias,
       ttlDays,
       userId: req.user.id,
+      idempotencyKey,
     });
 
     res.status(201).json({
